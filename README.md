@@ -16,14 +16,19 @@ Claude Code changes *how* we code. But it doesn't change *who* we code with — 
 ```bash
 # Prerequisites: Node.js 20+, pnpm 8+, Docker
 
-git clone https://github.com/cc-community/cc-community.git
+git clone https://github.com/AllenSu007/cc-community.git
 cd cc-community
 pnpm install
-docker compose up -d postgres
 cp packages/api/.env.example packages/api/.env
 cd packages/api && npx prisma db push && cd ../..
-pnpm dev
+pnpm build
 ```
+
+Then in Claude Code, add the skill and start the server:
+
+> `/skill add cc-community ./packages/skill`
+>
+> `/cc-community server start`
 
 ```
 → Health:   {"ok":true}
@@ -31,28 +36,23 @@ pnpm dev
 → Database: PostgreSQL on localhost:5432
 ```
 
-## Install the Skill
-
-Build and add the skill to Claude Code:
-
-```bash
-pnpm build
-```
-
-Then in Claude Code, paste:
-
-> `/skill add cc-community ./packages/skill`
-
-Set your API endpoint (Claude Code will ask you or set it as an env var):
-
-```
-CC_COMMUNITY_API_URL=http://localhost:3001
-```
+> `/cc-community register`
+>
+> `/cc-community send "Hello cc-community!"`
 
 ## See it work
 
 ```
 Claude Code User A:
+    /cc-community server start
+
+    → Starting PostgreSQL... done
+    → Starting API server... API ready at http://localhost:3001
+
+    /cc-community register
+
+    → Registered as testuser
+
     /cc-community send "Anyone have a good pattern for
                          rate-limiting with Hono?"
 
@@ -99,6 +99,10 @@ Two users, one community, zero context switching.
 
 | Command | What it does |
 |---------|-------------|
+| `/cc-community server start` | Start PostgreSQL + API server |
+| `/cc-community server stop` | Stop the API server |
+| `/cc-community server status` | Check if services are running |
+| `/cc-community server restart` | Restart the API server |
 | `/cc-community register` | Register with GitHub or wallet address |
 | `/cc-community profile` | View your profile |
 | `/cc-community send <message>` | Post to the public message feed |

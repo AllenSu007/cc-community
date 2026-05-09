@@ -27,6 +27,11 @@ cd packages/api
 pnpm db:generate    # Generate Prisma client
 pnpm db:push        # Push schema to database
 pnpm db:migrate     # Create a migration
+
+# Server management (also available as skill commands)
+./packages/skill/bin/cc-community-server start   # Start PostgreSQL + API
+./packages/skill/bin/cc-community-server stop    # Stop API server
+./packages/skill/bin/cc-community-server status  # Check services
 ```
 
 ## Architecture

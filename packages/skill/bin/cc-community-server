@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ── Server management script for cc-community ──
+# Usage: cc-community-server <start|stop|status|restart|logs>
+#
+# Uses CC_COMMUNITY_PROJECT_PATH or PWD to locate the project.
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Find project root: env var > PWD > skill dir parent
+if [ -n "${CC_COMMUNITY_PROJECT_PATH:-}" ]; then
+  PROJECT_DIR="$CC_COMMUNITY_PROJECT_PATH"
+elif [ -f "$PWD/docker-compose.yml" ] && grep -q "cc-community" "$PWD/docker-compose.yml" 2>/dev/null; then
+  PROJECT_DIR="$PWD"
+elif [ -f "$SKILL_DIR/../../docker-compose.yml" ]; then
+  PROJECT_DIR="$(cd "$SKILL_DIR/../.." && pwd)"
+else
+  echo "Error: Cannot find project root. Set CC_COMMUNITY_PROJECT_PATH or run from project directory."
+  exit 1
+fi
+
+API_URL="${CC_COMMUNITY_API_URL:-http://localhost:3001}"
+
+cmd_start() {
+  echo ">>> Starting PostgreSQL..."
+  (cd "$PROJECT_DIR" && docker compose up -d postgres 2>/dev/null || echo "  (docker not available, assuming postgres is running externally)")
+  echo ">>> Starting API server..."
+  (cd "$PROJECT_DIR" && pnpm dev &)
+  echo ">>> Waiting for API..."
+  for i in $(seq 1 10); do
+    if curl -sf "$API_URL/health" >/dev/null 2>&1; then
+      echo "  API ready at $API_URL"
+      break
+    fi
+    sleep 1
+  done
+  echo "Done."
+}
+
+cmd_stop() {
+  echo ">>> Stopping API server..."
+  pkill -f "tsx.*index.ts" 2>/dev/null || true
+  sleep 1
+  echo "Done."
+}
+
+cmd_status() {
+  echo "=== PostgreSQL ==="
+  if docker compose exec postgres pg_isready -U cc_community 2>/dev/null; then
+    echo "  Status: running"
+  else
+    echo "  Status: not running (or docker not available)"
+  fi
+
+  echo ""
+  echo "=== API Server ==="
+  if curl -sf "$API_URL/health" >/dev/null 2>&1; then
+    local healthy
+    healthy=$(curl -s "$API_URL/health")
+    echo "  Status: running — $healthy"
+  else
+    echo "  Status: not running"
+  fi
+
+  echo ""
+  echo "=== Project ==="
+  echo "  Path: $PROJECT_DIR"
+  echo "  API:  $API_URL"
+}
+
+cmd_restart() {
+  cmd_stop
+  sleep 1
+  cmd_start
+}
+
+cmd_logs() {
+  local logfile
+  logfile=$(find /tmp -name "cc-community-*.log" -type f 2>/dev/null | head -1)
+  if [ -n "$logfile" ]; then
+    tail -f "$logfile"
+  else
+    echo "No log file found. Watching pnpm dev output is not supported yet."
+    echo "Run 'pnpm dev' in a separate terminal to see logs."
+  fi
+}
+
+case "${1:-help}" in
+  start)   cmd_start ;;
+  stop)    cmd_stop ;;
+  status)  cmd_status ;;
+  restart) cmd_restart ;;
+  logs)    cmd_logs ;;
+  help|*)
+    echo "Usage: cc-community-server <command>"
+    echo ""
+    echo "Commands:"
+    echo "  start    Start PostgreSQL and API server"
+    echo "  stop     Stop API server"
+    echo "  status   Check PostgreSQL and API server status"
+    echo "  restart  Restart API server"
+    echo "  logs     Show API server logs"
+    ;;
+esac

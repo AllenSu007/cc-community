@@ -11,6 +11,9 @@
       "import": "./dist/index.js"
     }
   },
+  "bin": {
+    "cc-community-server": "./bin/cc-community-server"
+  },
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
