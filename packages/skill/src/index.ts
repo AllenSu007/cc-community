@@ -24,8 +24,9 @@
  *   /cc-community profile                         - View your profile
  *
  *   When `/cc-community register` is invoked:
- *     1. Ask the user if they want GitHub OAuth or wallet-based auth
- *     2. For GitHub: run the OAuth flow, POST /api/auth/github with the code
+ *     1. Ask the user if they want GitHub OAuth (device flow) or wallet-based auth
+ *     2. For GitHub device flow: POST github.com/login/device/code, show user_code,
+ *        poll for access_token, then POST /api/auth/github/token
  *     3. For Wallet: prompt for wallet address + signature, POST /api/auth/wallet
  *     4. Store the returned JWT token for subsequent API calls
  *

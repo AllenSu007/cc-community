@@ -33,10 +33,32 @@ Use `/cc-community server restart` to restart:
 ### Auth
 
 Use `/cc-community register` to register a user:
-1. Ask the user whether they want **GitHub OAuth** or **wallet** authentication
-2. For GitHub: POST `/api/auth/github` with `{ code }`
-3. For wallet: POST `/api/auth/wallet` with `{ walletAddress, signature, message }`
-4. Store the returned JWT token and use it in the `Authorization: Bearer <token>` header for all subsequent API calls
+
+**GitHub (device flow — recommended for CLI):**
+1. Request a device code from GitHub:
+   ```bash
+   curl -s -X POST https://github.com/login/device/code \
+     -H "Accept: application/json" \
+     -d "client_id=$GITHUB_CLIENT_ID&scope=read:user"
+   ```
+   → returns `{ device_code, user_code, verification_uri, interval }`
+2. Tell the user to visit `verification_uri` (usually `https://github.com/login/device`) and enter the `user_code`
+3. Poll GitHub every `interval` seconds until the user authorizes:
+   ```bash
+   curl -s -X POST https://github.com/login/oauth/access_token \
+     -H "Accept: application/json" \
+     -d "client_id=$GITHUB_CLIENT_ID&device_code=$DEVICE_CODE&grant_type=urn:ietf:params:oauth:grant-type:device_code"
+   ```
+   → repeat until you get `{ access_token }` (not `{ error: "authorization_pending" }`)
+4. POST the `accessToken` to the API: `POST /api/auth/github/token` with `{ accessToken }`
+5. Store the returned JWT token
+
+**Wallet authentication:**
+1. Prompt for wallet address, signature, and message
+2. POST `/api/auth/wallet` with `{ walletAddress, signature, message }`
+3. Store the returned JWT token
+
+Store the JWT and use it in the `Authorization: Bearer <token>` header for all subsequent API calls.
 
 Use `/cc-community profile` to view user info:
 1. GET `/api/auth/me`

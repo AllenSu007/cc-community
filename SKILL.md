@@ -1,6 +1,6 @@
 ---
 name: cc-community
-preamble-tier: 2
+preamble-tier: 1
 version: 1.0.0
 description: |
   Community-contributed skills for Claude Code — messaging, tasks, and bounties
@@ -23,8 +23,9 @@ Before using these commands, you need a running cc-community API server:
 
 1. Set `CC_COMMUNITY_API_URL` (default: http://localhost:3001)
 2. Set `CC_COMMUNITY_PROJECT_PATH` if running the server from outside the project directory
-3. Ensure the API server is running (use `/cc-community server start`)
-4. Register with `/cc-community register`
+3. Run through the [Installation](#installation) steps below first
+4. Start the server with `/cc-community server start`
+5. Register with `/cc-community register`
 
 ## Commands
 
@@ -56,10 +57,20 @@ Use `/cc-community server restart` to restart:
 ### Auth
 
 Use `/cc-community register` to register a user:
-1. Ask the user whether they want **GitHub OAuth** or **wallet** authentication
-2. For GitHub: POST `/api/auth/github` with `{ code }`
-3. For wallet: POST `/api/auth/wallet` with `{ walletAddress, signature, message }`
-4. Store the returned JWT token and use it in the `Authorization: Bearer <token>` header for all subsequent API calls
+
+**GitHub (device flow — recommended for CLI):**
+1. Request a device code from GitHub: `POST https://github.com/login/device/code` with `client_id` + `scope=read:user` → get `{ device_code, user_code, verification_uri, interval }`
+2. Tell the user to visit `verification_uri` and enter the `user_code`
+3. Poll `POST https://github.com/login/oauth/access_token` with `client_id` + `device_code` + `grant_type=urn:ietf:params:oauth:grant-type:device_code`, every `interval` seconds, until you get `{ access_token }`
+4. Exchange it via `POST /api/auth/github/token` with `{ accessToken }`
+5. Store the returned JWT
+
+**Wallet authentication:**
+1. Prompt for wallet address, signature, and message
+2. POST `/api/auth/wallet` with `{ walletAddress, signature, message }`
+3. Store the returned JWT token
+
+Use the JWT in the `Authorization: Bearer <token>` header for all subsequent API calls.
 
 Use `/cc-community profile` to view user info:
 1. GET `/api/auth/me`
@@ -131,27 +142,209 @@ Use `/cc-community pay task <id>`:
 
 ## Installation
 
-To install via Claude Code marketplace:
+### System Requirements
 
-1. Add this repository as a known marketplace in `~/.claude/settings.json`:
-   ```json
-   {
-     "extraKnownMarketplaces": {
-       "cc-community": {
-         "source": {
-           "source": "github",
-           "repo": "AllenSu007/cc-community"
-         }
-       }
-     }
-   }
-   ```
-2. Add the plugin to `enabledPlugins`:
-   ```json
-   {
-     "enabledPlugins": {
-       "cc-community@cc-community": true
-     }
-   }
-   ```
-3. Restart Claude Code — the `/cc-community` commands will be available globally.
+Before installing, make sure you have:
+
+- **Node.js** 20+
+- **pnpm** 8+
+- **Docker** (for PostgreSQL)
+
+### Step 1: Clone and set up the project
+
+```bash
+git clone https://github.com/AllenSu007/cc-community.git
+cd cc-community
+pnpm install
+cp packages/api/.env.example packages/api/.env
+```
+
+### Step 2: Configure environment variables
+
+Edit `packages/api/.env` and fill in the required values:
+
+```env
+DATABASE_URL=postgresql://cc_community:cc_community_dev@localhost:5432/cc_community
+JWT_SECRET=<generate-a-random-secret>
+PORT=3001
+
+# GitHub OAuth (required for GitHub login)
+# 1. Go to https://github.com/settings/developers → OAuth Apps → New OAuth App
+# 2. Set Authorization callback URL to http://localhost:3001
+# 3. Copy the Client ID and Client Secret here:
+GITHUB_CLIENT_ID=Ov23liEXAMPLE           # replace with your Client ID
+GITHUB_CLIENT_SECRET=ghp_EXAMPLESECRET    # replace with your Client Secret
+
+# Stripe (optional — required for payment features)
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+```
+
+> **Note:** `JWT_SECRET` is used to sign auth tokens. Generate one with:
+> ```bash
+> openssl rand -hex 32
+> ```
+
+### Step 3: Initialize the database
+
+```bash
+cd packages/api
+npx prisma db push
+cd ../..
+pnpm build
+```
+
+This creates the PostgreSQL tables (User, Message, Task, Payment).
+
+### Step 4: Install the marketplace plugin
+
+Add this repo as a marketplace in `~/.claude/settings.json`:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "cc-community-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "AllenSu007/cc-community"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "cc-community@cc-community-marketplace": true
+  }
+}
+```
+
+Restart Claude Code — the `/cc-community` commands will be available globally.
+
+> **Alternative (no marketplace):** You can also add the skill directly with:
+> ```
+> /skill add cc-community ./packages/skill
+> ```
+
+### Step 5: Start the server
+
+In Claude Code, run:
+
+```
+/cc-community server start
+```
+
+You should see:
+```
+→ PostgreSQL is running
+→ Health: {"ok":true}
+→ API: http://localhost:3001
+```
+
+## Getting Started — GitHub OAuth Example
+
+This example walks through two users (Alice and Bob) setting up cc-community and communicating with each other.
+
+### Setup (one-time)
+
+Both users clone and start the server on the same machine (or network):
+
+```bash
+git clone https://github.com/AllenSu007/cc-community.git
+cd cc-community
+pnpm install
+cp packages/api/.env.example packages/api/.env
+# Edit .env: set GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, JWT_SECRET
+cd packages/api && npx prisma db push && cd ../..
+pnpm build
+```
+
+Start the server:
+```
+/cc-community server start
+```
+
+### Alice registers and posts to the feed
+
+Alice creates a GitHub OAuth app at https://github.com/settings/developers (no callback URL needed for device flow):
+
+| Field | Example value |
+|-------|---------------|
+| Application name | `cc-community-local` |
+| Homepage URL | `http://localhost:3001` |
+| Authorization callback URL | *(leave empty for device flow)* |
+
+She gets:
+- **Client ID**: `Ov23liEXAMPLE` (fake)
+- **Client Secret**: `ghp_EXAMPLESECRETabc` (fake)
+
+She puts these in `packages/api/.env`, then starts the server and registers:
+
+```
+/cc-community register
+```
+
+Claude Code asks: *How would you like to register?*
+
+Alice picks **GitHub OAuth**. Claude Code uses the device flow — it tells her:
+```
+→ Go to https://github.com/login/device and enter: ABCD-1234
+```
+
+Alice opens the link in her browser, enters the code, and authorizes the app. Claude Code detects the authorization automatically:
+
+```
+→ Registered as alice-dev
+→ Token: eyJhbGciOiJIUzI1NiIs...
+```
+
+Now Alice posts to the public feed:
+```
+/cc-community send "Anyone building with Hono? I'd love to chat!"
+```
+
+```
+→ Message posted to public feed
+```
+
+### Bob registers and replies
+
+Bob repeats the same registration process:
+
+```
+/cc-community register
+→ Go to https://github.com/login/device and enter: WXYZ-5678
+```
+
+Bob authorizes in his browser, and Claude Code completes the registration:
+
+```
+→ Registered as bob-coder
+```
+
+Bob checks the public feed:
+```
+/cc-community feed
+```
+
+```
+→ alice-dev: Anyone building with Hono? I'd love to chat!
+```
+
+Bob sends Alice a direct message:
+```
+/cc-community send @alice-dev "Hey! I've been using Hono for a few weeks. Happy to help."
+```
+
+```
+→ DM sent privately to alice-dev
+```
+
+### Alice checks her inbox
+
+```
+/cc-community inbox
+```
+
+```
+→ bob-coder (12:34 UTC): Hey! I've been using Hono for a few weeks. Happy to help.
+```
+
+Two users, one community — all inside Claude Code.

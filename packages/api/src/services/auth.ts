@@ -22,6 +22,29 @@ function generateToken(userId: string, username: string): string {
   return jwt.sign({ userId, username }, getJwtSecret(), { expiresIn: "7d" });
 }
 
+async function fetchGitHubUserAndUpsert(accessToken: string) {
+  const userRes = await fetch("https://api.github.com/user", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const githubUser = await userRes.json() as { id: number; login: string; name: string | null; bio: string | null };
+
+  const user = await prisma.user.upsert({
+    where: { githubId: String(githubUser.id) },
+    update: { username: githubUser.login, displayName: githubUser.name },
+    create: {
+      githubId: String(githubUser.id),
+      username: githubUser.login,
+      displayName: githubUser.name,
+      bio: githubUser.bio,
+    },
+  });
+
+  return {
+    token: generateToken(user.id, user.username),
+    user: toUserDTO(user),
+  };
+}
+
 export async function authenticateWithGitHub(code: string) {
   const GITHUB_CLIENT_ID = process.env["GITHUB_CLIENT_ID"];
   const GITHUB_CLIENT_SECRET = process.env["GITHUB_CLIENT_SECRET"];
@@ -46,28 +69,12 @@ export async function authenticateWithGitHub(code: string) {
     throw new Error(`GitHub OAuth failed: ${tokenData.error}`);
   }
 
-  // Fetch user info
-  const userRes = await fetch("https://api.github.com/user", {
-    headers: { Authorization: `Bearer ${tokenData.access_token}` },
-  });
-  const githubUser = await userRes.json() as { id: number; login: string; name: string | null; bio: string | null };
+  return fetchGitHubUserAndUpsert(tokenData.access_token);
+}
 
-  // Upsert user
-  const user = await prisma.user.upsert({
-    where: { githubId: String(githubUser.id) },
-    update: { username: githubUser.login, displayName: githubUser.name },
-    create: {
-      githubId: String(githubUser.id),
-      username: githubUser.login,
-      displayName: githubUser.name,
-      bio: githubUser.bio,
-    },
-  });
-
-  return {
-    token: generateToken(user.id, user.username),
-    user: toUserDTO(user),
-  };
+// For device authorization flow (CLI/headless environments)
+export async function authenticateWithGitHubToken(accessToken: string) {
+  return fetchGitHubUserAndUpsert(accessToken);
 }
 
 export async function authenticateWithWallet(walletAddress: string, signature: string, message: string) {

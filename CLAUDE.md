@@ -66,21 +66,83 @@ Key models:
 - **Task lifecycle**: Strict state machine — creator assigns → assignee submits → creator approves
 - **Messaging**: Public feed by default; set `receiverId` for DM
 
-## Marketplace Plugin
+## Installation Guide
 
-cc-community is available as a Claude Code marketplace plugin. To install globally:
+### Prerequisites
 
-1. Add this repo as a marketplace in `~/.claude/settings.json`:
-   ```json
-   {
-     "extraKnownMarketplaces": {
-       "cc-community-marketplace": {
-         "source": { "source": "github", "repo": "AllenSu007/cc-community" }
-       }
-     },
-     "enabledPlugins": {
-       "cc-community@cc-community-marketplace": true
-     }
-   }
-   ```
-2. Restart Claude Code — the `/cc-community` commands will be available in any project.
+- Node.js 20+, pnpm 8+, Docker
+
+### 1. Clone and setup
+
+```bash
+git clone https://github.com/AllenSu007/cc-community.git
+cd cc-community
+pnpm install
+cp packages/api/.env.example packages/api/.env
+```
+
+### 2. Configure `.env`
+
+Edit `packages/api/.env`:
+
+| Variable | Required | How to get it |
+|----------|----------|---------------|
+| `GITHUB_CLIENT_ID` | Yes | Create OAuth App at https://github.com/settings/developers |
+| `GITHUB_CLIENT_SECRET` | Yes | Same OAuth App page |
+| `JWT_SECRET` | Yes | Generate: `openssl rand -hex 32` |
+| `STRIPE_SECRET_KEY` | Payments only | Stripe dashboard |
+| `STRIPE_WEBHOOK_SECRET` | Payments only | Stripe dashboard |
+
+For GitHub OAuth, the callback URL in your OAuth App should be `http://localhost:3001`.
+
+### 3. Initialize database
+
+```bash
+cd packages/api && npx prisma db push && cd ../..
+pnpm build
+```
+
+### 4. Install the marketplace plugin
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "cc-community-marketplace": {
+      "source": { "source": "github", "repo": "AllenSu007/cc-community" }
+    }
+  },
+  "enabledPlugins": {
+    "cc-community@cc-community-marketplace": true
+  }
+}
+```
+
+Restart Claude Code.
+
+### 5. Start server
+
+```
+/cc-community server start
+```
+
+### Usage Example (GitHub OAuth)
+
+**Alice:**
+```
+/cc-community register          → pick GitHub OAuth
+/cc-community send "Hello!"     → post to public feed
+```
+
+**Bob:**
+```
+/cc-community register          → same GitHub OAuth app
+/cc-community feed              → see Alice's message
+/cc-community send @alice "Hi!" → send DM
+```
+
+**Alice:**
+```
+/cc-community inbox             → read Bob's DM
+```

@@ -48,6 +48,10 @@ export class ApiClient {
     return this.request<AuthResponse>("POST", "/api/auth/wallet", { walletAddress, signature, message } as WalletAuthRequest);
   }
 
+  authWithGitHubToken(accessToken: string) {
+    return this.request<AuthResponse>("POST", "/api/auth/github/token", { accessToken });
+  }
+
   getMe() {
     return this.request<any>("GET", "/api/auth/me");
   }
