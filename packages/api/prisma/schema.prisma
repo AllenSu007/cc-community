@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  githubId      String?  @unique
+  walletAddress String?  @unique
+  username      String   @unique
+  displayName   String?
+  bio           String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sentMessages     Message[] @relation("SentMessages")
+  inboxMessages    Message[] @relation("InboxMessages")
+  createdTasks     Task[]    @relation("CreatedTasks")
+  assignedTasks    Task[]    @relation("AssignedTasks")
+  paymentsSent     Payment[] @relation("PaymentsSent")
+  paymentsReceived Payment[] @relation("PaymentsReceived")
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String?
+  content    String
+  isPublic   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  sender   User  @relation("SentMessages", fields: [senderId], references: [id])
+  receiver User? @relation("InboxMessages", fields: [receiverId], references: [id])
+}
+
+enum TaskStatus {
+  OPEN
+  ASSIGNED
+  SUBMITTED
+  COMPLETED
+  CANCELLED
+}
+
+model Task {
+  id             String     @id @default(cuid())
+  creatorId      String
+  assigneeId     String?
+  title          String
+  description    String
+  rewardAmount   Float
+  rewardCurrency String     @default("USD")
+  paymentMethod  String     @default("stripe")
+  status         TaskStatus @default(OPEN)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  completedAt    DateTime?
+
+  creator  User      @relation("CreatedTasks", fields: [creatorId], references: [id])
+  assignee User?     @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  payments Payment[]
+}
+
+enum PaymentStatus {
+  PENDING
+  ESCROW
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+model Payment {
+  id                    String        @id @default(cuid())
+  taskId                String
+  fromUserId            String
+  toUserId              String?
+  amount                Float
+  currency              String
+  method                String
+  status                PaymentStatus @default(PENDING)
+  stripePaymentIntentId String?
+  cryptoTxHash          String?
+  escrowedUntil         DateTime?
+  createdAt             DateTime      @default(now())
+  completedAt           DateTime?
+
+  task Task  @relation(fields: [taskId], references: [id])
+  from User  @relation("PaymentsSent", fields: [fromUserId], references: [id])
+  to   User? @relation("PaymentsReceived", fields: [toUserId], references: [id])
+}

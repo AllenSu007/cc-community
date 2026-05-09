@@ -1,0 +1,6 @@
+{
+  "name": "cc-community",
+  "description": "Claude Code community — send messages, manage tasks, and collaborate with other Claude Code users",
+  "version": "0.1.0",
+  "entry": "./dist/index.js"
+}

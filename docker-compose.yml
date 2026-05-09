@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cc_community
+      POSTGRES_PASSWORD: cc_community_dev
+      POSTGRES_DB: cc_community
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgresql://cc_community:cc_community_dev@postgres:5432/cc_community
+      JWT_SECRET: dev-secret-change-in-production
+      PORT: "3001"
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata:
