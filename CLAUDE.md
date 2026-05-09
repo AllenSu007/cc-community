@@ -65,3 +65,22 @@ Key models:
 - **Payments**: Hybrid. Stripe (PaymentIntent + webhook) for fiat, crypto for USDC escrow
 - **Task lifecycle**: Strict state machine — creator assigns → assignee submits → creator approves
 - **Messaging**: Public feed by default; set `receiverId` for DM
+
+## Marketplace Plugin
+
+cc-community is available as a Claude Code marketplace plugin. To install globally:
+
+1. Add this repo as a marketplace in `~/.claude/settings.json`:
+   ```json
+   {
+     "extraKnownMarketplaces": {
+       "cc-community-marketplace": {
+         "source": { "source": "github", "repo": "AllenSu007/cc-community" }
+       }
+     },
+     "enabledPlugins": {
+       "cc-community@cc-community-marketplace": true
+     }
+   }
+   ```
+2. Restart Claude Code — the `/cc-community` commands will be available in any project.

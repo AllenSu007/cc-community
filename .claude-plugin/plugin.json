@@ -1,0 +1,19 @@
+{
+  "name": "cc-community",
+  "description": "Community messaging and task bounty skills for Claude Code",
+  "version": "1.0.0",
+  "author": {
+    "name": "AllenSu007"
+  },
+  "homepage": "https://github.com/AllenSu007/cc-community",
+  "repository": "https://github.com/AllenSu007/cc-community",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "community",
+    "messaging",
+    "tasks",
+    "bounties",
+    "cc-community"
+  ]
+}

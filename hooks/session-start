@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# SessionStart hook for cc-community plugin
+# Injects cc-community skill commands into every session
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+SKILL_CONTENT=$(cat "${PLUGIN_ROOT}/SKILL.md" 2>&1)
+
+escape_for_json() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+}
+
+escaped_content=$(escape_for_json "$SKILL_CONTENT")
+additional_context="<skill name=\"cc-community\">\n${escaped_content}\n</skill>"
+
+if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+  printf '{\n  "additional_context": "%s"\n}\n' "$additional_context"
+elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
+  printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$additional_context"
+else
+  printf '{\n  "additionalContext": "%s"\n}\n' "$additional_context"
+fi
+
+exit 0

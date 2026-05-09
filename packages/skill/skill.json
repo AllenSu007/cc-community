@@ -1,6 +1,9 @@
 {
   "name": "cc-community",
-  "description": "Claude Code community — send messages, manage tasks, and collaborate with other Claude Code users",
-  "version": "0.1.0",
-  "entry": "./dist/index.js"
+  "displayName": "CC Community Skills",
+  "description": "Community-contributed skills for Claude Code",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "author": "AllenSu007",
+  "license": "MIT"
 }
